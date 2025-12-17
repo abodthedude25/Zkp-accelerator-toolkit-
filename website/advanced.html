@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKP Accelerator - Advanced Visualizations</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes flow { 0% { stroke-dashoffset: 20; } 100% { stroke-dashoffset: 0; } }
+        @keyframes bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .animate-pulse-slow { animation: pulse 2s ease-in-out infinite; }
+        .animate-flow { animation: flow 1s linear infinite; stroke-dasharray: 10 10; }
+        .animate-bounce-slow { animation: bounce 1s ease-in-out infinite; }
+        .glow { filter: drop-shadow(0 0 8px currentColor); }
+        .glow-strong { filter: drop-shadow(0 0 15px currentColor); }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ============================================================
+        // MSM (MULTI-SCALAR MULTIPLICATION) VISUALIZER
+        // ============================================================
+        const MSMVisualizer = () => {
+            const [step, setStep] = useState(0);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [windowSize, setWindowSize] = useState(4);
+            
+            const numPoints = 8;
+            const scalars = [13, 7, 11, 3, 9, 15, 5, 2]; // Example scalars
+            
+            // Decompose scalars into windows
+            const getWindows = (scalar, w) => {
+                const windows = [];
+                let s = scalar;
+                while (s > 0 || windows.length < Math.ceil(8 / w)) {
+                    windows.push(s & ((1 << w) - 1));
+                    s >>= w;
+                }
+                return windows;
+            };
+
+            const numBuckets = (1 << windowSize) - 1;
+            
+            useEffect(() => {
+                if (isPlaying && step < 4) {
+                    const timer = setTimeout(() => setStep(s => s + 1), 2000);
+                    return () => clearTimeout(timer);
+                } else if (step >= 4) {
+                    setIsPlaying(false);
+                }
+            }, [isPlaying, step]);
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-red-400">MSM: Multi-Scalar Multiplication</h2>
+                    <p className="text-gray-400 mb-4">
+                        Computing Σ sᵢ · Gᵢ using Pippenger's algorithm - the OTHER major ZKP bottleneck
+                    </p>
+                    
+                    {/* Controls */}
+                    <div className="flex gap-4 mb-6 flex-wrap">
+                        <button 
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            className="px-4 py-2 bg-red-600 hover:bg-red-500 rounded-lg font-semibold"
+                        >
+                            {isPlaying ? '⏸ Pause' : '▶ Animate'}
+                        </button>
+                        <button 
+                            onClick={() => setStep(0)}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg"
+                        >
+                            ↺ Reset
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">Window size:</span>
+                            <select 
+                                value={windowSize}
+                                onChange={(e) => setWindowSize(Number(e.target.value))}
+                                className="bg-gray-700 rounded px-2 py-1"
+                            >
+                                <option value={2}>2 bits</option>
+                                <option value={4}>4 bits</option>
+                                <option value={8}>8 bits</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Step indicator */}
+                    <div className="flex gap-2 mb-6">
+                        {['Input', 'Decompose', 'Bucket', 'Reduce'].map((name, i) => (
+                            <div 
+                                key={i}
+                                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                                    i === step 
+                                        ? 'bg-red-500 text-white scale-110' 
+                                        : i < step 
+                                            ? 'bg-green-600 text-white' 
+                                            : 'bg-gray-700 text-gray-400'
+                                }`}
+                            >
+                                {name}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Visualization */}
+                    <div className="bg-gray-700 p-4 rounded-lg mb-4">
+                        {step === 0 && (
+                            <div>
+                                <h3 className="font-semibold mb-3">Input: Scalars × Points</h3>
+                                <div className="flex gap-4 overflow-x-auto pb-2">
+                                    {scalars.map((s, i) => (
+                                        <div key={i} className="flex flex-col items-center">
+                                            <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center font-bold text-black">
+                                                {s}
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-1">s{i}</div>
+                                            <div className="text-lg my-1">×</div>
+                                            <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center font-bold">
+                                                G{i}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-4 text-center text-xl">
+                                    Goal: Compute {scalars.map((s, i) => `${s}·G${i}`).join(' + ')}
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 1 && (
+                            <div>
+                                <h3 className="font-semibold mb-3">Decompose Scalars into {windowSize}-bit Windows</h3>
+                                <div className="space-y-2">
+                                    {scalars.slice(0, 4).map((s, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <div className="w-16 text-yellow-400 font-mono">{s} =</div>
+                                            <div className="flex gap-1">
+                                                {getWindows(s, windowSize).map((w, j) => (
+                                                    <div key={j} className="px-2 py-1 bg-purple-600 rounded text-sm">
+                                                        {w}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="text-xs text-gray-400">
+                                                (base 2^{windowSize})
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-4 text-sm text-gray-400">
+                                    This reduces scalar multiplications from O(256) to O(256/{windowSize})
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 2 && (
+                            <div>
+                                <h3 className="font-semibold mb-3">Bucket Accumulation (RANDOM ACCESS!)</h3>
+                                <div className="grid grid-cols-4 gap-2 mb-4">
+                                    {Array(Math.min(numBuckets, 15)).fill(0).map((_, i) => (
+                                        <div 
+                                            key={i}
+                                            className={`p-2 rounded text-center ${
+                                                [1, 3, 5, 7, 9, 11, 13, 15].includes(i + 1)
+                                                    ? 'bg-red-600 animate-pulse-slow'
+                                                    : 'bg-gray-600'
+                                            }`}
+                                        >
+                                            <div className="text-xs text-gray-300">Bucket {i + 1}</div>
+                                            <div className="font-bold">
+                                                {[1, 3, 5, 7, 9, 11, 13, 15].includes(i + 1) ? '●●' : '○'}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-3 bg-red-900 rounded-lg">
+                                    <span className="text-red-400 font-semibold">⚠️ Memory Bottleneck: </span>
+                                    Points are added to random buckets - unpredictable memory access!
+                                </div>
+                            </div>
+                        )}
+
+                        {step === 3 && (
+                            <div>
+                                <h3 className="font-semibold mb-3">Bucket Reduction (Sequential)</h3>
+                                <div className="flex items-center justify-center gap-2">
+                                    {[15, 14, 13, 12, 11].map((b, i) => (
+                                        <React.Fragment key={i}>
+                                            <div className="px-3 py-2 bg-green-600 rounded">B{b}</div>
+                                            {i < 4 && <span className="text-green-400">→</span>}
+                                        </React.Fragment>
+                                    ))}
+                                    <span className="mx-2">=</span>
+                                    <div className="px-4 py-2 bg-yellow-500 text-black rounded font-bold">
+                                        Result
+                                    </div>
+                                </div>
+                                <div className="mt-4 p-3 bg-green-900 rounded-lg">
+                                    <span className="text-green-400 font-semibold">✓ Sequential: </span>
+                                    Bucket reduction is sequential - good memory pattern!
+                                </div>
+                            </div>
+                        )}
+
+                        {step >= 4 && (
+                            <div className="text-center">
+                                <div className="text-6xl mb-4">✓</div>
+                                <div className="text-2xl text-green-400 font-bold">MSM Complete!</div>
+                                <div className="text-gray-400 mt-2">
+                                    Result: Σ sᵢ · Gᵢ computed with {numBuckets} buckets
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Key insight */}
+                    <div className="p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Why MSM is the other ZKP bottleneck:</p>
+                        <ul className="list-disc list-inside text-gray-300 space-y-1">
+                            <li>Bucket accumulation has <span className="text-red-400">random memory access</span></li>
+                            <li>Can't prefetch - each point goes to unpredictable bucket</li>
+                            <li>~30% HBM bandwidth utilization (vs ~95% for SumCheck)</li>
+                            <li>zkSpeed dedicates half the chip to MSM acceleration</li>
+                        </ul>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // NTT (NUMBER THEORETIC TRANSFORM) VISUALIZER
+        // ============================================================
+        const NTTVisualizer = () => {
+            const [step, setStep] = useState(0);
+            const [direction, setDirection] = useState('forward');
+            const [isAnimating, setIsAnimating] = useState(false);
+            
+            const n = 8;
+            const values = [3, 1, 4, 1, 5, 9, 2, 6];
+            
+            useEffect(() => {
+                if (isAnimating && step < 3) {
+                    const timer = setTimeout(() => setStep(s => s + 1), 1500);
+                    return () => clearTimeout(timer);
+                } else if (step >= 3) {
+                    setIsAnimating(false);
+                }
+            }, [isAnimating, step]);
+
+            // Generate butterfly connections for visualization
+            const getButterflyConnections = (stage) => {
+                const connections = [];
+                const gap = 1 << stage;
+                for (let i = 0; i < n; i++) {
+                    if ((i & gap) === 0) {
+                        connections.push([i, i + gap]);
+                    }
+                }
+                return connections;
+            };
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-blue-400">NTT: Number Theoretic Transform</h2>
+                    <p className="text-gray-400 mb-4">
+                        Fast polynomial multiplication using the Cooley-Tukey butterfly algorithm
+                    </p>
+                    
+                    {/* Controls */}
+                    <div className="flex gap-4 mb-6">
+                        <button 
+                            onClick={() => { setIsAnimating(true); setStep(0); }}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-semibold"
+                        >
+                            ▶ Animate NTT
+                        </button>
+                        <button 
+                            onClick={() => setStep(0)}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg"
+                        >
+                            ↺ Reset
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <button 
+                                onClick={() => setDirection('forward')}
+                                className={`px-3 py-1 rounded ${direction === 'forward' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                            >
+                                Forward
+                            </button>
+                            <button 
+                                onClick={() => setDirection('inverse')}
+                                className={`px-3 py-1 rounded ${direction === 'inverse' ? 'bg-blue-600' : 'bg-gray-600'}`}
+                            >
+                                Inverse
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Butterfly diagram */}
+                    <div className="bg-gray-700 p-4 rounded-lg mb-4">
+                        <h3 className="font-semibold mb-3">Butterfly Diagram (n={n})</h3>
+                        <svg width="100%" height="300" viewBox="0 0 600 280">
+                            {/* Stage labels */}
+                            {[0, 1, 2, 3].map(s => (
+                                <text key={s} x={50 + s * 150} y="20" className="fill-gray-400 text-sm" textAnchor="middle">
+                                    {s === 0 ? 'Input' : s === 3 ? 'Output' : `Stage ${s}`}
+                                </text>
+                            ))}
+                            
+                            {/* Nodes at each stage */}
+                            {[0, 1, 2, 3].map(stage => (
+                                <g key={stage}>
+                                    {Array(n).fill(0).map((_, i) => (
+                                        <g key={i}>
+                                            <circle 
+                                                cx={50 + stage * 150} 
+                                                cy={50 + i * 30}
+                                                r="12"
+                                                className={`${
+                                                    stage <= step 
+                                                        ? 'fill-blue-500' 
+                                                        : 'fill-gray-600'
+                                                } transition-all duration-300`}
+                                            />
+                                            {stage === 0 && (
+                                                <text 
+                                                    x={50 + stage * 150} 
+                                                    y={54 + i * 30}
+                                                    textAnchor="middle"
+                                                    className="fill-white text-xs font-bold"
+                                                >
+                                                    {values[i]}
+                                                </text>
+                                            )}
+                                        </g>
+                                    ))}
+                                </g>
+                            ))}
+                            
+                            {/* Butterfly connections */}
+                            {[0, 1, 2].map(stage => {
+                                const connections = getButterflyConnections(stage);
+                                const isActive = stage < step;
+                                return (
+                                    <g key={`conn-${stage}`}>
+                                        {connections.map(([from, to], idx) => (
+                                            <g key={idx}>
+                                                {/* Straight lines */}
+                                                <line 
+                                                    x1={62 + stage * 150}
+                                                    y1={50 + from * 30}
+                                                    x2={188 + stage * 150}
+                                                    y2={50 + from * 30}
+                                                    className={`${isActive ? 'stroke-blue-400' : 'stroke-gray-600'} transition-all`}
+                                                    strokeWidth="2"
+                                                />
+                                                <line 
+                                                    x1={62 + stage * 150}
+                                                    y1={50 + to * 30}
+                                                    x2={188 + stage * 150}
+                                                    y2={50 + to * 30}
+                                                    className={`${isActive ? 'stroke-blue-400' : 'stroke-gray-600'} transition-all`}
+                                                    strokeWidth="2"
+                                                />
+                                                {/* Cross lines (butterfly) */}
+                                                <line 
+                                                    x1={62 + stage * 150}
+                                                    y1={50 + from * 30}
+                                                    x2={188 + stage * 150}
+                                                    y2={50 + to * 30}
+                                                    className={`${isActive ? 'stroke-yellow-400' : 'stroke-gray-700'} transition-all`}
+                                                    strokeWidth="2"
+                                                    strokeDasharray={isActive && stage === step - 1 ? "5,5" : "0"}
+                                                />
+                                                <line 
+                                                    x1={62 + stage * 150}
+                                                    y1={50 + to * 30}
+                                                    x2={188 + stage * 150}
+                                                    y2={50 + from * 30}
+                                                    className={`${isActive ? 'stroke-yellow-400' : 'stroke-gray-700'} transition-all`}
+                                                    strokeWidth="2"
+                                                    strokeDasharray={isActive && stage === step - 1 ? "5,5" : "0"}
+                                                />
+                                            </g>
+                                        ))}
+                                    </g>
+                                );
+                            })}
+                        </svg>
+                    </div>
+
+                    {/* Explanation */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                        <div className="p-4 bg-gray-700 rounded-lg">
+                            <h4 className="font-semibold text-blue-400 mb-2">Forward NTT</h4>
+                            <ul className="text-sm text-gray-300 space-y-1">
+                                <li>• Coefficient → Evaluation form</li>
+                                <li>• O(n log n) operations</li>
+                                <li>• Used before polynomial multiplication</li>
+                            </ul>
+                        </div>
+                        <div className="p-4 bg-gray-700 rounded-lg">
+                            <h4 className="font-semibold text-purple-400 mb-2">Inverse NTT</h4>
+                            <ul className="text-sm text-gray-300 space-y-1">
+                                <li>• Evaluation → Coefficient form</li>
+                                <li>• Same complexity O(n log n)</li>
+                                <li>• Used after pointwise multiplication</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* Why it matters */}
+                    <div className="p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Why NTT matters for ZKP:</p>
+                        <p className="text-gray-300">
+                            Polynomial multiplication is everywhere in ZKPs. Without NTT: O(n²). With NTT: O(n log n).
+                            zkSpeed and zkPHIRE use NTT for polynomial commitment evaluation and quotient computation.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // POLYNOMIAL COMMITMENT VISUALIZER
+        // ============================================================
+        const PolynomialCommitmentVisualizer = () => {
+            const [scheme, setScheme] = useState('kzg');
+            const [step, setStep] = useState(0);
+            const [isAnimating, setIsAnimating] = useState(false);
+
+            useEffect(() => {
+                if (isAnimating && step < 4) {
+                    const timer = setTimeout(() => setStep(s => s + 1), 2000);
+                    return () => clearTimeout(timer);
+                } else if (step >= 4) {
+                    setIsAnimating(false);
+                }
+            }, [isAnimating, step]);
+
+            const schemes = {
+                kzg: {
+                    name: 'KZG',
+                    fullName: 'Kate-Zaverucha-Goldberg',
+                    setup: 'Trusted setup (τ)',
+                    commit: 'C = [f(τ)]₁',
+                    open: 'π = [(f(τ)-f(z))/(τ-z)]₁',
+                    verify: 'e(C-[f(z)]₁, [1]₂) = e(π, [τ-z]₂)',
+                    proSize: '48 bytes',
+                    verifyTime: '2 pairings',
+                    color: 'cyan'
+                },
+                ipa: {
+                    name: 'IPA',
+                    fullName: 'Inner Product Argument',
+                    setup: 'Transparent (random G)',
+                    commit: 'C = Σ fᵢ · Gᵢ',
+                    open: 'Recursive halving',
+                    verify: 'O(log n) group ops',
+                    proSize: 'O(log n) · 48 bytes',
+                    verifyTime: 'O(log n)',
+                    color: 'purple'
+                },
+                fri: {
+                    name: 'FRI',
+                    fullName: 'Fast Reed-Solomon IOP',
+                    setup: 'Transparent (hash)',
+                    commit: 'Merkle root of evaluations',
+                    open: 'Recursive folding',
+                    verify: 'O(log² n) hashes',
+                    proSize: 'O(log² n) hashes',
+                    verifyTime: 'O(log² n)',
+                    color: 'orange'
+                }
+            };
+
+            const s = schemes[scheme];
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-cyan-400">Polynomial Commitment Schemes</h2>
+                    <p className="text-gray-400 mb-4">
+                        How provers commit to polynomials without revealing them
+                    </p>
+                    
+                    {/* Scheme selector */}
+                    <div className="flex gap-2 mb-6">
+                        {Object.entries(schemes).map(([key, val]) => (
+                            <button 
+                                key={key}
+                                onClick={() => { setScheme(key); setStep(0); }}
+                                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                                    scheme === key 
+                                        ? `bg-${val.color}-600 scale-105` 
+                                        : 'bg-gray-600 hover:bg-gray-500'
+                                }`}
+                            >
+                                {val.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex gap-4 mb-6">
+                        <button 
+                            onClick={() => { setIsAnimating(true); setStep(0); }}
+                            className={`px-4 py-2 bg-${s.color}-600 hover:bg-${s.color}-500 rounded-lg font-semibold`}
+                        >
+                            ▶ Animate {s.name}
+                        </button>
+                        <button 
+                            onClick={() => setStep(0)}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg"
+                        >
+                            ↺ Reset
+                        </button>
+                    </div>
+
+                    {/* Visual flow */}
+                    <div className="bg-gray-700 p-4 rounded-lg mb-4">
+                        <h3 className="font-semibold mb-4">{s.fullName} Protocol</h3>
+                        
+                        <div className="flex items-center justify-between mb-6">
+                            {['Setup', 'Commit', 'Open', 'Verify'].map((name, i) => (
+                                <React.Fragment key={i}>
+                                    <div 
+                                        className={`px-4 py-3 rounded-lg text-center transition-all ${
+                                            i <= step 
+                                                ? `bg-${s.color}-600 scale-105` 
+                                                : 'bg-gray-600'
+                                        }`}
+                                    >
+                                        <div className="font-semibold">{name}</div>
+                                        <div className="text-xs mt-1 opacity-75">
+                                            {i === 0 && s.setup}
+                                            {i === 1 && 'Prover'}
+                                            {i === 2 && 'Prover'}
+                                            {i === 3 && 'Verifier'}
+                                        </div>
+                                    </div>
+                                    {i < 3 && (
+                                        <div className={`text-2xl ${i < step ? `text-${s.color}-400` : 'text-gray-600'}`}>
+                                            →
+                                        </div>
+                                    )}
+                                </React.Fragment>
+                            ))}
+                        </div>
+
+                        {/* Details for current step */}
+                        <div className="p-4 bg-gray-800 rounded-lg font-mono text-sm">
+                            {step === 0 && <div><span className="text-gray-400">Setup: </span>{s.setup}</div>}
+                            {step === 1 && <div><span className="text-gray-400">Commit: </span>{s.commit}</div>}
+                            {step === 2 && <div><span className="text-gray-400">Open: </span>{s.open}</div>}
+                            {step >= 3 && <div><span className="text-gray-400">Verify: </span>{s.verify}</div>}
+                        </div>
+                    </div>
+
+                    {/* Comparison table */}
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                        {Object.entries(schemes).map(([key, val]) => (
+                            <div 
+                                key={key}
+                                className={`p-4 rounded-lg ${
+                                    scheme === key ? `bg-${val.color}-900 ring-2 ring-${val.color}-400` : 'bg-gray-700'
+                                }`}
+                            >
+                                <h4 className={`font-bold text-${val.color}-400 mb-2`}>{val.name}</h4>
+                                <div className="text-xs space-y-1 text-gray-300">
+                                    <div>Setup: {val.setup.split(' ')[0]}</div>
+                                    <div>Proof: {val.proSize}</div>
+                                    <div>Verify: {val.verifyTime}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Why it matters */}
+                    <div className="p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Connection to MSM:</p>
+                        <p className="text-gray-300">
+                            KZG and IPA commitments require <span className="text-red-400">MSM</span> to compute!
+                            This is why MSM is such a critical operation - every commitment = one MSM.
+                            zkSpeed and zkPHIRE accelerate both SumCheck AND MSM for this reason.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // CROSSOVER POINT VISUALIZER
+        // ============================================================
+        const CrossoverVisualizer = () => {
+            const [degree, setDegree] = useState(10);
+            const [bandwidth, setBandwidth] = useState(2000);
+            
+            // Model: compute grows with degree, memory stays constant
+            const computeTime = (d) => d * 0.5; // ms per 2^20 gates
+            const memoryTime = (bw) => 2000 / bw * 5; // ms per 2^20 gates
+            
+            const compute = computeTime(degree);
+            const memory = memoryTime(bandwidth);
+            const bottleneck = compute > memory ? 'COMPUTE' : 'MEMORY';
+            const crossover = Math.round(memoryTime(bandwidth) / 0.5);
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-green-400">Memory-Compute Crossover</h2>
+                    <p className="text-gray-400 mb-4">
+                        Find where polynomial degree causes compute to overtake memory as the bottleneck
+                    </p>
+                    
+                    {/* Sliders */}
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                Polynomial Degree: {degree}
+                            </label>
+                            <input 
+                                type="range" min="2" max="30" value={degree}
+                                onChange={(e) => setDegree(Number(e.target.value))}
+                                className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                <span>Vanilla (4)</span>
+                                <span>Jellyfish (7)</span>
+                                <span>High (15+)</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                HBM Bandwidth: {bandwidth} GB/s
+                            </label>
+                            <input 
+                                type="range" min="500" max="4000" step="100" value={bandwidth}
+                                onChange={(e) => setBandwidth(Number(e.target.value))}
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Visual chart */}
+                    <div className="bg-gray-700 p-4 rounded-lg mb-4">
+                        <svg width="100%" height="200" viewBox="0 0 600 200">
+                            {/* Axes */}
+                            <line x1="50" y1="170" x2="550" y2="170" className="stroke-gray-500" strokeWidth="2" />
+                            <line x1="50" y1="170" x2="50" y2="20" className="stroke-gray-500" strokeWidth="2" />
+                            
+                            {/* Labels */}
+                            <text x="300" y="195" className="fill-gray-400 text-sm" textAnchor="middle">Polynomial Degree</text>
+                            <text x="20" y="100" className="fill-gray-400 text-sm" transform="rotate(-90, 20, 100)">Time (ms)</text>
+                            
+                            {/* Memory line (horizontal) */}
+                            <line 
+                                x1="50" y1={170 - memory * 15} 
+                                x2="550" y2={170 - memory * 15}
+                                className="stroke-pink-500" strokeWidth="3"
+                            />
+                            <text x="560" y={170 - memory * 15 + 5} className="fill-pink-400 text-xs">Memory</text>
+                            
+                            {/* Compute line (diagonal) */}
+                            <line 
+                                x1="50" y1="170" 
+                                x2="550" y2={170 - 30 * 0.5 * 15}
+                                className="stroke-blue-500" strokeWidth="3"
+                            />
+                            <text x="560" y={170 - 30 * 0.5 * 15 + 5} className="fill-blue-400 text-xs">Compute</text>
+                            
+                            {/* Crossover point */}
+                            <circle 
+                                cx={50 + crossover * (500 / 30)}
+                                cy={170 - memory * 15}
+                                r="8"
+                                className="fill-yellow-500"
+                            />
+                            <text 
+                                x={50 + crossover * (500 / 30)}
+                                y={170 - memory * 15 - 15}
+                                className="fill-yellow-400 text-xs font-bold"
+                                textAnchor="middle"
+                            >
+                                d={crossover}
+                            </text>
+                            
+                            {/* Current position */}
+                            <circle 
+                                cx={50 + degree * (500 / 30)}
+                                cy={170 - Math.max(compute, memory) * 15}
+                                r="6"
+                                className={`${bottleneck === 'COMPUTE' ? 'fill-blue-400' : 'fill-pink-400'} animate-pulse-slow`}
+                            />
+                        </svg>
+                    </div>
+
+                    {/* Current status */}
+                    <div className={`p-4 rounded-lg mb-4 ${bottleneck === 'COMPUTE' ? 'bg-blue-900' : 'bg-pink-900'}`}>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div className="text-sm text-gray-400">Compute Time</div>
+                                <div className="text-xl font-bold text-blue-400">{compute.toFixed(1)} ms</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Memory Time</div>
+                                <div className="text-xl font-bold text-pink-400">{memory.toFixed(1)} ms</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Bottleneck</div>
+                                <div className={`text-xl font-bold ${bottleneck === 'COMPUTE' ? 'text-blue-400' : 'text-pink-400'}`}>
+                                    {bottleneck}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Insight */}
+                    <div className="p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Key insight from zkPHIRE:</p>
+                        <p className="text-gray-300">
+                            Crossover at degree ~{crossover}. Vanilla (d=4) and Jellyfish (d=7) are both 
+                            <span className="text-pink-400"> memory-bound</span>. This is why both zkSpeed and zkPHIRE 
+                            invest heavily in HBM bandwidth. Future high-degree gates may shift to compute-bound.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // MAIN APP
+        // ============================================================
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('msm');
+
+            const tabs = [
+                { id: 'msm', name: 'MSM Algorithm', icon: '🔢', color: 'red' },
+                { id: 'ntt', name: 'NTT Butterfly', icon: '🦋', color: 'blue' },
+                { id: 'commit', name: 'Poly Commitments', icon: '🔐', color: 'cyan' },
+                { id: 'crossover', name: 'Crossover Point', icon: '📈', color: 'green' },
+            ];
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <header className="bg-gradient-to-r from-red-900 via-purple-900 to-blue-900 p-6">
+                        <h1 className="text-4xl font-bold text-center mb-2">
+                            ZKP Accelerator - Advanced Visualizations
+                        </h1>
+                        <p className="text-center text-gray-300">
+                            Deep dive into MSM, NTT, and Polynomial Commitments
+                        </p>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
+                        <div className="flex overflow-x-auto">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-6 py-4 font-semibold whitespace-nowrap transition-all ${
+                                        activeTab === tab.id
+                                            ? `bg-gray-700 text-${tab.color}-400 border-b-2 border-${tab.color}-400`
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    <span className="mr-2">{tab.icon}</span>
+                                    {tab.name}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    {/* Content */}
+                    <main className="container mx-auto p-6 max-w-6xl">
+                        {activeTab === 'msm' && <MSMVisualizer />}
+                        {activeTab === 'ntt' && <NTTVisualizer />}
+                        {activeTab === 'commit' && <PolynomialCommitmentVisualizer />}
+                        {activeTab === 'crossover' && <CrossoverVisualizer />}
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="bg-gray-800 p-4 text-center text-gray-400 text-sm">
+                        <a href="index.html" className="text-cyan-400 hover:underline mr-4">← Basic Visualizations</a>
+                        Built to demonstrate understanding of zkSpeed & zkPHIRE papers
+                    </footer>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

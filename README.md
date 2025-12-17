@@ -1,406 +1,128 @@
-# ZKP Accelerator Toolkit
+# ZKP Accelerator Complete Package
 
-A comprehensive educational toolkit for understanding Zero-Knowledge Proof (ZKP) accelerators, specifically focused on the SumCheck protocol used in HyperPlonk and similar systems.
+A comprehensive educational toolkit demonstrating deep understanding of the zkSpeed and zkPHIRE papers on ZKP hardware acceleration.
 
-This toolkit accompanies the research papers:
-- **zkSpeed**: "Need for zkSpeed: Accelerating HyperPlonk for Zero-Knowledge Proofs" (ISCA 2025)
-- **zkPHIRE**: "zkPHIRE: A Programmable Accelerator for ZKPs over HIgh-degRee, Expressive Gates"
+## 📁 Contents
 
-## Overview
+```
+zkp-complete/
+├── website/                    # Interactive web visualizations
+│   ├── index.html              # Basic visualizations (SumCheck, Gates, Memory, Pipeline)
+│   ├── advanced.html           # Advanced visualizations (MSM, NTT, Commitments)
+│   └── README.md
+│
+└── zkp-accelerator-toolkit/    # Python implementation
+    ├── src/
+    │   ├── visualizer/         # Project 1: SumCheck step-by-step
+    │   ├── simulator/          # Project 2: Hardware performance modeling
+    │   ├── optimizer/          # Project 3: Gate optimization analysis
+    │   └── main.py             # Unified demo runner
+    ├── README.md
+    └── requirements.txt
+```
 
-This repository contains three interconnected projects:
+## 🚀 Quick Start
 
-| Project | Description | Key Learning |
-|---------|-------------|--------------|
-| **Visualizer** | Interactive step-by-step SumCheck visualization | Understand the algorithm deeply |
-| **Simulator** | Performance modeling for hardware configurations | Understand compute vs memory tradeoffs |
-| **Optimizer** | Custom gate design exploration | Understand why Jellyfish gates help |
-
-## Quick Start
-
-### Installation
-
+### Interactive Website (No Installation!)
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/zkp-accelerator-toolkit.git
+cd website
+open index.html        # Basic visualizations
+open advanced.html     # Advanced visualizations
+```
+
+### Python Toolkit
+```bash
 cd zkp-accelerator-toolkit
-
-# Create virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Install the package in development mode
-pip install -e .
-```
-
-### Run the Demo
-
-```bash
-# Run all three demos
 python -m src.main
-
-# Or run individual components
-python -m src.visualizer.demo
-python -m src.simulator.demo
-python -m src.optimizer.demo
 ```
 
-## Project 1: SumCheck Visualizer
+## 🎯 What This Demonstrates
 
-**Purpose**: Understand how the SumCheck protocol works step-by-step.
+### Paper Understanding
 
-### What It Does
+| Concept | Where Demonstrated |
+|---------|-------------------|
+| SumCheck Protocol | Website: SumCheck tab, Python: visualizer |
+| MLE Extension | Python: visualizer (detailed calculations) |
+| Gate Reduction | Website: Gate Comparison, Python: optimizer |
+| Jellyfish vs Vanilla | Both: gate analysis with 2.4x cost factor |
+| Memory Bottleneck | Website: Memory Patterns, Crossover Point |
+| MSM Algorithm | Website: MSM tab (Pippenger visualization) |
+| NTT Transform | Website: NTT Butterfly diagram |
+| Polynomial Commitments | Website: KZG, IPA, FRI comparison |
+| Hardware Tradeoffs | Website: Hardware Explorer, Python: simulator |
+| Workload Analysis | Both: accounting for gate reduction |
 
-- Visualizes MLE (Multilinear Extension) tables
-- Shows extension computation at each round
-- Demonstrates MLE updates with random challenges
-- Traces the full protocol execution
+### Key Insights Encoded
 
-### Usage
+1. **SumCheck is memory-bound** at practical polynomial degrees
+2. **Jellyfish gates need >2.4x reduction** to overcome per-gate cost
+3. **x^5 is the sweet spot** - 3.0x reduction → 1.25x net speedup
+4. **MSM uses random access** - fundamentally different bottleneck
+5. **Crossover at degree ~18** - where compute overtakes memory
+6. **Hash-heavy workloads benefit most** from high-degree gates
 
-```python
-from src.visualizer import SumCheckVisualizer, MLETable
-from src.common.field import PrimeField
+## 📊 Visualizations Overview
 
-# Create a small field for visualization
-field = PrimeField(97)
+### Basic (index.html)
 
-# Create MLE tables (polynomials a, b, c)
-a = MLETable("a", [3, 7, 2, 5, 1, 8, 4, 6], field)
-b = MLETable("b", [1, 4, 6, 2, 8, 3, 5, 7], field)
-c = MLETable("c", [5, 2, 8, 1, 4, 7, 3, 6], field)
+| Tab | What It Shows |
+|-----|---------------|
+| ∑ SumCheck Protocol | Animated table halving, round progression |
+| ⊕ Gate Comparison | Interactive x^n gate counts with cost analysis |
+| 📊 Memory Patterns | Streaming vs random access animation |
+| ⚙️ Prover Pipeline | Full proving flow with time breakdown |
+| 🔧 Hardware Explorer | Adjustable PEs, bandwidth, degree |
+| 📈 Workload Analysis | Comparison accounting for gate reduction |
 
-# Create visualizer for f(X) = a(X) * b(X) * c(X)
-viz = SumCheckVisualizer([a, b, c], field)
+### Advanced (advanced.html)
 
-# Run with visualization
-viz.run_full_protocol(verbose=True)
-```
+| Tab | What It Shows |
+|-----|---------------|
+| 🔢 MSM Algorithm | Pippenger's bucket accumulation |
+| 🦋 NTT Butterfly | Cooley-Tukey transform diagram |
+| 🔐 Poly Commitments | KZG vs IPA vs FRI comparison |
+| 📈 Crossover Point | Memory-compute bottleneck visualization |
 
-### Example Output
+## 🔬 Python Toolkit Details
 
-```
-══════════════════════════════════════════════════════════════
-                 SUMCHECK PROTOCOL VISUALIZATION
-══════════════════════════════════════════════════════════════
+### Project 1: SumCheck Visualizer
+- Step-by-step protocol execution
+- Extension polynomial calculation
+- Detailed verification with math
 
-Polynomial: f(X) = product of 3 MLEs
-Number of variables: μ = 3
-Initial table size: 2³ = 8 entries
-Field: Z_97
+### Project 2: Performance Simulator
+- Cycle-accurate modeling
+- Memory vs compute bottleneck detection
+- **NEW: Workload comparison** (accounts for gate reduction!)
 
-─── Initial MLE Tables ───
-  a: [3, 7, 2, 5, 1, 8, 4, 6]
-  b: [1, 4, 6, 2, 8, 3, 5, 7]
-  c: [5, 2, 8, 1, 4, 7, 3, 6]
+### Project 3: Gate Optimizer
+- Gate count estimation for x^n
+- Cost analysis with Jellyfish 2.4x factor
+- Workload-specific recommendations
 
-══════════════════════════════════════════════════════════════
-ROUND 1
-══════════════════════════════════════════════════════════════
+## 💡 Teaching Points
 
-Random Challenge: r₁ = 23
+When presenting this work, emphasize:
 
-─── Extensions (X₁ = 0, 1, 2, 3, 4) ───
-  a: Pair 0: [3, 7, 11, 15, 19] (from indices 0,1)
-  ...
+1. **The Core Tradeoff**: High-degree gates do more per gate (fewer gates needed) but cost more per gate (2.4x). Net benefit depends on reduction factor.
 
-─── Round Polynomial s₁(X₁) ───
-  s₁(0) = 127, s₁(1) = 89, s₁(2) = 54, s₁(3) = 23
+2. **Why Poseidon Loves Jellyfish**: Poseidon hash uses x^5 S-boxes. Jellyfish has native x^5 support. 8x gate reduction → 3.3x net speedup.
 
-─── MLE Update (fixing X₁ = 23) ───
-  a: [3, 7, 2, 5, 1, 8, 4, 6] → [95, 71, 62, 50]
-  Table size: 8 → 4
-```
+3. **Memory is King**: At typical polynomial degrees (4-7), SumCheck is memory-bound. Both papers invest heavily in HBM bandwidth.
 
-## Project 2: SumCheck Performance Simulator
+4. **MSM is Different**: Unlike SumCheck's streaming access, MSM has random access patterns. This is why it needs separate optimization.
 
-**Purpose**: Understand hardware design tradeoffs for SumCheck acceleration.
+5. **System-Level Thinking**: Can't just optimize one component. Full prover = witness gen + commitments (MSM) + SumCheck + opening proofs (MSM).
 
-### What It Does
+## 📚 References
 
-- Models cycle-accurate performance
-- Simulates different hardware configurations
-- Analyzes compute-bound vs memory-bound behavior
-- Generates Pareto frontier analysis
+- zkSpeed: Accelerating Zero-Knowledge Proof with Hardware Accelerator (2024)
+- zkPHIRE: Programmable High-degree ZKP Hardware Implementation (2024)
 
-### Key Concepts Modeled
+## 🛠️ Technical Stack
 
-1. **Extension Computation**: Generating polynomial evaluations at multiple points
-2. **Product Lanes**: Computing products across terms
-3. **MLE Updates**: Halving table sizes between rounds
-4. **Memory Bandwidth**: HBM access patterns
-
-### Usage
-
-```python
-from src.simulator import SumCheckSimulator, HardwareConfig, VANILLA_ZEROCHECK
-
-# Configure hardware (similar to zkSpeed)
-config = HardwareConfig(
-    num_pes=4,
-    extension_engines_per_pe=3,
-    product_lanes_per_pe=5,
-    hbm_bandwidth_gb_s=2000,  # 2 TB/s
-    frequency_ghz=1.0
-)
-
-# Create simulator
-sim = SumCheckSimulator(config)
-
-# Simulate SumCheck on Vanilla ZeroCheck polynomial
-metrics = sim.simulate(VANILLA_ZEROCHECK, problem_size=2**20)
-
-print(f"Total cycles: {metrics.total_cycles:,}")
-print(f"Runtime: {metrics.runtime_ms:.2f} ms")
-print(f"Bottleneck: {metrics.bottleneck}")
-```
-
-### Bandwidth Sensitivity Analysis
-
-```python
-# Sweep bandwidth to understand memory-bound behavior
-bandwidths = [256, 512, 1024, 2048, 4096]  # GB/s
-results = sim.sweep_bandwidth(VANILLA_ZEROCHECK, 2**20, bandwidths)
-
-for bw, metrics in results.items():
-    print(f"{bw} GB/s: {metrics.runtime_ms:.2f} ms ({metrics.bottleneck})")
-```
-
-### Example Output
-
-```
-══════════════════════════════════════════════════════════════
-              SUMCHECK PERFORMANCE SIMULATOR
-══════════════════════════════════════════════════════════════
-
-Problem size: 2²⁰ = 1,048,576 gates
-Hardware: 4 PEs, 2000 GB/s bandwidth
-
-──────────────────────────────────────────────────────────────
-POLYNOMIAL COMPARISON
-──────────────────────────────────────────────────────────────
-
-Vanilla ZeroCheck:
-  Terms: 5, Max degree: 4, Unique MLEs: 9
-  Total cycles: 2,847,293
-  Runtime: 2.85 ms
-  Bottleneck: MEMORY
-  Compute utilization: 45.2%
-  Memory utilization: 89.3%
-
-Jellyfish ZeroCheck:
-  Terms: 13, Max degree: 7, Unique MLEs: 14
-  Total cycles: 5,234,891
-  Runtime: 5.23 ms
-  Bottleneck: COMPUTE
-  Compute utilization: 78.4%
-  Memory utilization: 52.1%
-```
-
-## Project 3: Custom Gate Design Optimizer
-
-**Purpose**: Understand why custom gates (like Jellyfish) improve performance.
-
-### What It Does
-
-- Analyzes computation patterns
-- Maps operations to different gate types
-- Compares Vanilla vs Jellyfish gates
-- Finds optimal gate configurations
-
-### Gate Types Supported
-
-| Gate Type | Max Inputs | Degree | Best For |
-|-----------|-----------|--------|----------|
-| Vanilla | 2 | 4 | Simple circuits |
-| Jellyfish | 4 | 7 | Hash functions, EC ops |
-| Custom | Configurable | Configurable | Specialized workloads |
-
-### Usage
-
-```python
-from src.optimizer import GateOptimizer, Computation, Operation, OpType
-
-# Define a computation: x^5
-computation = Computation(
-    operations=[
-        Operation(OpType.MUL, ["x", "x"], "x2"),      # x²
-        Operation(OpType.MUL, ["x2", "x2"], "x4"),    # x⁴  
-        Operation(OpType.MUL, ["x4", "x"], "x5"),     # x⁵
-    ],
-    inputs={"x"},
-    outputs={"x5"}
-)
-
-# Find optimal gate configuration
-optimizer = GateOptimizer()
-best_mapping, analysis = optimizer.optimize(computation)
-
-print(f"Recommended: {analysis['recommendation']}")
-print(f"Vanilla gates: {analysis['vanilla_gates']}")
-print(f"Jellyfish gates: {analysis['jellyfish_gates']}")
-print(f"Reduction: {analysis['reduction']:.1f}x")
-```
-
-### Pattern Recognition
-
-```python
-# Analyze a larger computation
-analysis = optimizer.analyze_computation(computation)
-
-print("Detected patterns:")
-for pattern_type, patterns in analysis['patterns'].items():
-    print(f"  {pattern_type}: {len(patterns)} instances")
-```
-
-### Example Output
-
-```
-══════════════════════════════════════════════════════════════
-               GATE OPTIMIZATION EXPLORER
-══════════════════════════════════════════════════════════════
-
-Computation: 100 instances of x^5
-
-Analysis:
-  Total operations: 300
-  Operation types: {MUL: 300}
-  Detected patterns:
-    power_chains: 100 (each of length 5)
-
-──────────────────────────────────────────────────────────────
-MAPPING COMPARISON
-──────────────────────────────────────────────────────────────
-
-Vanilla Gates:
-  Gate count: 300
-  Polynomial degree: 4
-  SumCheck complexity score: 6000
-
-Jellyfish Gates:
-  Gate count: 100
-  Polynomial degree: 7
-  SumCheck complexity score: 9100
-
-RECOMMENDATION: Jellyfish
-  Despite 1.75x higher per-gate complexity,
-  3x fewer gates yields net 1.52x speedup
-```
-
-## Architecture
-
-```
-zkp-accelerator-toolkit/
-├── README.md                 # This file
-├── requirements.txt          # Python dependencies
-├── setup.py                  # Package installation
-├── src/
-│   ├── __init__.py
-│   ├── main.py              # Run all demos
-│   ├── common/              # Shared utilities
-│   │   ├── __init__.py
-│   │   ├── field.py         # Finite field arithmetic
-│   │   └── polynomial.py    # Polynomial representations
-│   ├── visualizer/          # Project 1
-│   │   ├── __init__.py
-│   │   ├── core.py          # SumCheck visualizer
-│   │   ├── mle.py           # MLE table operations
-│   │   └── demo.py          # Visualizer demo
-│   ├── simulator/           # Project 2
-│   │   ├── __init__.py
-│   │   ├── core.py          # Performance simulator
-│   │   ├── hardware.py      # Hardware configuration
-│   │   ├── polynomials.py   # Predefined polynomials
-│   │   └── demo.py          # Simulator demo
-│   └── optimizer/           # Project 3
-│       ├── __init__.py
-│       ├── core.py          # Gate optimizer
-│       ├── gates.py         # Gate type definitions
-│       ├── computation.py   # Computation representation
-│       └── demo.py          # Optimizer demo
-├── tests/                   # Unit tests
-│   ├── test_field.py
-│   ├── test_visualizer.py
-│   ├── test_simulator.py
-│   └── test_optimizer.py
-├── examples/                # Example scripts
-│   ├── basic_sumcheck.py
-│   ├── bandwidth_analysis.py
-│   └── gate_comparison.py
-└── docs/                    # Additional documentation
-    ├── SUMCHECK_EXPLAINED.md
-    ├── HARDWARE_MODEL.md
-    └── GATE_TYPES.md
-```
-
-## Key Concepts Reference
-
-### Finite Fields
-All ZKP arithmetic happens in finite fields (modular arithmetic):
-```python
-# In field Z_97: 50 + 60 = 110 mod 97 = 13
-field = PrimeField(97)
-result = field.add(50, 60)  # Returns 13
-```
-
-### MLE Tables
-Multilinear polynomials stored as lookup tables:
-```python
-# f(X1, X2) with 4 entries = 2² evaluations
-# f(0,0)=a, f(0,1)=b, f(1,0)=c, f(1,1)=d
-table = MLETable("f", [a, b, c, d], field)
-```
-
-### SumCheck Protocol
-Proves sum of polynomial over boolean hypercube:
-```python
-# Prove: Σ f(X) = C for all X ∈ {0,1}^μ
-# Reduces O(2^μ) checks to O(μ) rounds
-```
-
-### Hardware Metrics
-```python
-# Arithmetic Intensity = Operations / Bytes
-# High intensity (>1) = Compute-bound (MSM)
-# Low intensity (<0.1) = Memory-bound (SumCheck)
-```
-
-## Understanding the Papers
-
-### zkSpeed Key Insights
-1. **Unified SumCheck PE**: Single hardware unit handles ZeroCheck, PermCheck, OpenCheck
-2. **Streaming MLE Updates**: Can't store expanded tables on-chip
-3. **Montgomery Batching**: Amortizes expensive inversions
-4. **Multifunction Tree**: Reuses hardware across protocol steps
-
-### zkPHIRE Key Insights
-1. **Programmable SumCheck**: Handles arbitrary polynomial structures
-2. **Graph-based Scheduling**: Optimizes MLE data movement
-3. **High-degree Gates**: Jellyfish reduces gate count 8-32x
-4. **Crossover Point**: At degree ~18, SumCheck dominates MSM
-
-## Contributing
-
-Feel free to:
-- Add new polynomial types
-- Improve performance models
-- Create additional visualizations
-- Write more comprehensive tests
-
-## License
-
-MIT License - See LICENSE file
-
-## References
-
-1. zkSpeed Paper: "Need for zkSpeed: Accelerating HyperPlonk for Zero-Knowledge Proofs"
-2. zkPHIRE Paper: "zkPHIRE: A Programmable Accelerator for ZKPs over HIgh-degRee, Expressive Gates"
-3. HyperPlonk: "HyperPlonk: Plonk with Linear-Time Prover and High-Degree Custom Gates"
-4. SumCheck Protocol: Lund et al., "Algebraic Methods for Interactive Proof Systems"
-
-## Contact
-
-For questions about this toolkit or the underlying research, please open an issue on GitHub.
+- **Website**: React 18, Tailwind CSS, SVG animations
+- **Python**: Pure Python 3.8+, no heavy dependencies
+- **No Build Required**: HTML files run directly in browser

@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZKP Accelerator Interactive Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes flow {
+            0% { stroke-dashoffset: 20; }
+            100% { stroke-dashoffset: 0; }
+        }
+        .animate-pulse-slow { animation: pulse 2s ease-in-out infinite; }
+        .animate-flow { animation: flow 1s linear infinite; stroke-dasharray: 10 10; }
+        .glow { filter: drop-shadow(0 0 8px currentColor); }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ============================================================
+        // SUMCHECK VISUALIZER COMPONENT
+        // ============================================================
+        const SumCheckVisualizer = () => {
+            const [round, setRound] = useState(0);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const [speed, setSpeed] = useState(1000);
+            const [tableData, setTableData] = useState([
+                [3, 7, 2, 5, 1, 8, 4, 6],
+                [44, 57, 0, 73],
+                [85, 12],
+                [42]
+            ]);
+            const [challenges] = useState([83, 27, 65]);
+            
+            useEffect(() => {
+                if (isPlaying && round < 3) {
+                    const timer = setTimeout(() => setRound(r => r + 1), speed);
+                    return () => clearTimeout(timer);
+                } else if (round >= 3) {
+                    setIsPlaying(false);
+                }
+            }, [isPlaying, round, speed]);
+
+            const resetAnimation = () => {
+                setRound(0);
+                setIsPlaying(false);
+            };
+
+            const currentTable = tableData[round];
+            const nextTable = round < 3 ? tableData[round + 1] : null;
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-cyan-400">SumCheck Protocol Visualization</h2>
+                    
+                    {/* Controls */}
+                    <div className="flex gap-4 mb-6">
+                        <button 
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 rounded-lg font-semibold"
+                        >
+                            {isPlaying ? '⏸ Pause' : '▶ Play'}
+                        </button>
+                        <button 
+                            onClick={resetAnimation}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg"
+                        >
+                            ↺ Reset
+                        </button>
+                        <button 
+                            onClick={() => round < 3 && setRound(r => r + 1)}
+                            disabled={round >= 3}
+                            className="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg disabled:opacity-50"
+                        >
+                            Step →
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-400">Speed:</span>
+                            <input 
+                                type="range" 
+                                min="200" 
+                                max="2000" 
+                                value={speed}
+                                onChange={(e) => setSpeed(Number(e.target.value))}
+                                className="w-24"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Round indicator */}
+                    <div className="flex gap-2 mb-6">
+                        {[0, 1, 2, 3].map(r => (
+                            <div 
+                                key={r}
+                                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                                    r === round 
+                                        ? 'bg-cyan-500 text-white scale-110' 
+                                        : r < round 
+                                            ? 'bg-green-600 text-white' 
+                                            : 'bg-gray-700 text-gray-400'
+                                }`}
+                            >
+                                {r === 0 ? 'Start' : `Round ${r}`}
+                            </div>
+                        ))}
+                        {round === 3 && (
+                            <div className="px-4 py-2 bg-green-500 rounded-lg font-semibold animate-pulse">
+                                ✓ Verified!
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Visual representation */}
+                    <div className="relative">
+                        <svg width="800" height="300" className="mx-auto">
+                            {/* Current table */}
+                            <g transform="translate(50, 50)">
+                                <text x="0" y="-10" className="fill-gray-400 text-sm">
+                                    MLE Table (n={currentTable.length})
+                                </text>
+                                {currentTable.map((val, i) => (
+                                    <g key={i} transform={`translate(${i * 70}, 0)`}>
+                                        <rect 
+                                            x="0" y="0" 
+                                            width="60" height="40" 
+                                            rx="5"
+                                            className={`fill-cyan-600 ${round < 3 ? 'animate-pulse-slow' : ''}`}
+                                            style={{ animationDelay: `${i * 100}ms` }}
+                                        />
+                                        <text 
+                                            x="30" y="25" 
+                                            textAnchor="middle" 
+                                            className="fill-white font-bold"
+                                        >
+                                            {val}
+                                        </text>
+                                    </g>
+                                ))}
+                            </g>
+
+                            {/* Arrow and challenge */}
+                            {round < 3 && (
+                                <g transform="translate(350, 120)">
+                                    <path 
+                                        d="M 0 0 L 0 50" 
+                                        className="stroke-yellow-400 animate-flow"
+                                        fill="none" 
+                                        strokeWidth="3"
+                                        markerEnd="url(#arrowhead)"
+                                    />
+                                    <text x="20" y="30" className="fill-yellow-400 font-semibold">
+                                        r{round + 1} = {challenges[round]}
+                                    </text>
+                                </g>
+                            )}
+
+                            {/* Next table preview */}
+                            {nextTable && (
+                                <g transform="translate(50, 200)">
+                                    <text x="0" y="-10" className="fill-gray-400 text-sm">
+                                        After fixing X{round + 1} = {challenges[round]}
+                                    </text>
+                                    {nextTable.map((val, i) => (
+                                        <g key={i} transform={`translate(${i * 140}, 0)`}>
+                                            <rect 
+                                                x="0" y="0" 
+                                                width="120" height="40" 
+                                                rx="5"
+                                                className="fill-green-600 opacity-70"
+                                            />
+                                            <text 
+                                                x="60" y="25" 
+                                                textAnchor="middle" 
+                                                className="fill-white font-bold"
+                                            >
+                                                {val}
+                                            </text>
+                                        </g>
+                                    ))}
+                                </g>
+                            )}
+
+                            {/* Arrow marker definition */}
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                                        refX="9" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" className="fill-yellow-400" />
+                                </marker>
+                            </defs>
+                        </svg>
+                    </div>
+
+                    {/* Explanation */}
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg">
+                        <h3 className="font-semibold text-yellow-400 mb-2">What's happening:</h3>
+                        {round === 0 && (
+                            <p>Starting with 8 values (2³). Each round, the verifier sends a random challenge, and the table size halves.</p>
+                        )}
+                        {round === 1 && (
+                            <p>Round 1: Challenge r₁={challenges[0]}. Table reduced from 8→4 values. Prover computes extension and updates table.</p>
+                        )}
+                        {round === 2 && (
+                            <p>Round 2: Challenge r₂={challenges[1]}. Table reduced from 4→2 values. One more round to go!</p>
+                        )}
+                        {round === 3 && (
+                            <p className="text-green-400 font-semibold">✓ Complete! Final value verified against claimed sum. Protocol successful!</p>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // GATE COMPARISON VISUALIZER
+        // ============================================================
+        const GateComparisonVisualizer = () => {
+            const [exponent, setExponent] = useState(5);
+            
+            const vanillaGates = (exp) => {
+                if (exp <= 1) return 0;
+                if (exp === 2) return 1;
+                if (exp === 3) return 2;
+                if (exp === 4) return 2;
+                if (exp === 5) return 3;
+                if (exp === 6) return 3;
+                if (exp === 7) return 4;
+                if (exp === 8) return 3;
+                if (exp <= 16) return 4;
+                if (exp <= 25) return 6;
+                return Math.ceil(Math.log2(exp)) + (exp.toString(2).split('1').length - 2);
+            };
+
+            const jellyfishGates = (exp) => {
+                if (exp <= 1) return 0;
+                if (exp <= 5) return 1;
+                if (exp <= 7) return 2;
+                if (exp <= 10) return 2;
+                if (exp <= 25) return 2;
+                return Math.ceil(Math.log(exp) / Math.log(5));
+            };
+
+            const vGates = vanillaGates(exponent);
+            const jGates = jellyfishGates(exponent);
+            const reduction = vGates / jGates;
+            const jCost = jGates * 2.4;
+            const netSpeedup = vGates / jCost;
+            const winner = netSpeedup > 1 ? 'Jellyfish' : 'Vanilla';
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-purple-400">Gate Type Comparison</h2>
+                    
+                    {/* Exponent slider */}
+                    <div className="mb-6">
+                        <label className="block text-sm text-gray-400 mb-2">
+                            Computing x^{exponent}
+                        </label>
+                        <input 
+                            type="range" 
+                            min="2" 
+                            max="32" 
+                            value={exponent}
+                            onChange={(e) => setExponent(Number(e.target.value))}
+                            className="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-xs text-gray-500 mt-1">
+                            <span>x²</span>
+                            <span>x⁵</span>
+                            <span>x¹⁰</span>
+                            <span>x²⁰</span>
+                            <span>x³²</span>
+                        </div>
+                    </div>
+
+                    {/* Visual gate comparison */}
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                        {/* Vanilla */}
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="text-lg font-semibold text-blue-400 mb-3">Vanilla Gates</h3>
+                            <div className="flex flex-wrap gap-2 mb-3 min-h-16">
+                                {Array(vGates).fill(0).map((_, i) => (
+                                    <div 
+                                        key={i}
+                                        className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center font-bold"
+                                    >
+                                        ×
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-2xl font-bold">{vGates} gates</div>
+                            <div className="text-sm text-gray-400">Cost: {vGates.toFixed(1)}</div>
+                        </div>
+
+                        {/* Jellyfish */}
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="text-lg font-semibold text-pink-400 mb-3">Jellyfish Gates</h3>
+                            <div className="flex flex-wrap gap-2 mb-3 min-h-16">
+                                {Array(jGates).fill(0).map((_, i) => (
+                                    <div 
+                                        key={i}
+                                        className="w-12 h-12 bg-pink-500 rounded-lg flex items-center justify-center font-bold text-xs"
+                                    >
+                                        x⁵
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-2xl font-bold">{jGates} gates</div>
+                            <div className="text-sm text-gray-400">Cost: {jCost.toFixed(1)} (×2.4)</div>
+                        </div>
+                    </div>
+
+                    {/* Results */}
+                    <div className={`p-4 rounded-lg ${winner === 'Jellyfish' ? 'bg-green-900' : 'bg-red-900'}`}>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                                <div className="text-sm text-gray-400">Gate Reduction</div>
+                                <div className="text-xl font-bold">{reduction.toFixed(2)}×</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Net Speedup</div>
+                                <div className="text-xl font-bold">{netSpeedup.toFixed(2)}×</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Winner</div>
+                                <div className={`text-xl font-bold ${winner === 'Jellyfish' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {winner}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Explanation */}
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Why x⁵ is the sweet spot:</p>
+                        <ul className="list-disc list-inside text-gray-300 space-y-1">
+                            <li>Jellyfish has native x⁵ support (Poseidon S-box)</li>
+                            <li>Jellyfish gates cost 2.4× more per gate</li>
+                            <li>Break-even: need reduction &gt; 2.4×</li>
+                            <li>x⁵: 3 vanilla → 1 jellyfish = 3.0× reduction → <span className="text-green-400">1.25× speedup!</span></li>
+                        </ul>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // MEMORY ACCESS PATTERN VISUALIZER
+        // ============================================================
+        const MemoryAccessVisualizer = () => {
+            const [pattern, setPattern] = useState('streaming');
+            const [isAnimating, setIsAnimating] = useState(false);
+            const [accessIndex, setAccessIndex] = useState(0);
+            const canvasRef = useRef(null);
+
+            const memorySize = 32;
+            const streamingPattern = Array.from({length: 16}, (_, i) => i);
+            const randomPattern = [7, 23, 2, 19, 11, 28, 4, 15, 9, 31, 0, 22, 13, 6, 25, 18];
+
+            useEffect(() => {
+                if (isAnimating) {
+                    const timer = setTimeout(() => {
+                        setAccessIndex(i => (i + 1) % 16);
+                    }, pattern === 'streaming' ? 100 : 300);
+                    return () => clearTimeout(timer);
+                }
+            }, [isAnimating, accessIndex, pattern]);
+
+            const currentPattern = pattern === 'streaming' ? streamingPattern : randomPattern;
+            const currentAccess = currentPattern[accessIndex];
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-orange-400">Memory Access Patterns</h2>
+                    
+                    {/* Pattern selector */}
+                    <div className="flex gap-4 mb-6">
+                        <button 
+                            onClick={() => { setPattern('streaming'); setAccessIndex(0); }}
+                            className={`px-4 py-2 rounded-lg font-semibold ${
+                                pattern === 'streaming' ? 'bg-green-600' : 'bg-gray-600'
+                            }`}
+                        >
+                            Streaming (SumCheck)
+                        </button>
+                        <button 
+                            onClick={() => { setPattern('random'); setAccessIndex(0); }}
+                            className={`px-4 py-2 rounded-lg font-semibold ${
+                                pattern === 'random' ? 'bg-red-600' : 'bg-gray-600'
+                            }`}
+                        >
+                            Random (MSM)
+                        </button>
+                        <button 
+                            onClick={() => setIsAnimating(!isAnimating)}
+                            className="px-4 py-2 bg-orange-600 hover:bg-orange-500 rounded-lg font-semibold"
+                        >
+                            {isAnimating ? '⏸ Pause' : '▶ Animate'}
+                        </button>
+                    </div>
+
+                    {/* Memory grid */}
+                    <div className="mb-6">
+                        <div className="text-sm text-gray-400 mb-2">Memory (HBM)</div>
+                        <div className="grid grid-cols-8 gap-1">
+                            {Array(memorySize).fill(0).map((_, i) => (
+                                <div 
+                                    key={i}
+                                    className={`h-10 rounded flex items-center justify-center text-xs font-mono transition-all duration-200 ${
+                                        i === currentAccess 
+                                            ? 'bg-yellow-500 text-black scale-110 glow' 
+                                            : currentPattern.slice(0, accessIndex).includes(i)
+                                                ? pattern === 'streaming' ? 'bg-green-600' : 'bg-red-600'
+                                                : 'bg-gray-700'
+                                    }`}
+                                >
+                                    {i}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Access sequence */}
+                    <div className="mb-6">
+                        <div className="text-sm text-gray-400 mb-2">Access Sequence</div>
+                        <div className="flex gap-1 overflow-x-auto pb-2">
+                            {currentPattern.map((addr, i) => (
+                                <div 
+                                    key={i}
+                                    className={`w-8 h-8 rounded flex items-center justify-center text-xs font-mono flex-shrink-0 ${
+                                        i === accessIndex 
+                                            ? 'bg-yellow-500 text-black' 
+                                            : i < accessIndex 
+                                                ? pattern === 'streaming' ? 'bg-green-600' : 'bg-red-600'
+                                                : 'bg-gray-700'
+                                    }`}
+                                >
+                                    {addr}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Stats */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className={`p-4 rounded-lg ${pattern === 'streaming' ? 'bg-green-900' : 'bg-gray-700'}`}>
+                            <h3 className="font-semibold text-green-400">Streaming Access</h3>
+                            <ul className="text-sm text-gray-300 mt-2 space-y-1">
+                                <li>✓ Sequential addresses</li>
+                                <li>✓ High cache hit rate</li>
+                                <li>✓ Prefetching works</li>
+                                <li>✓ ~95% bandwidth utilization</li>
+                            </ul>
+                        </div>
+                        <div className={`p-4 rounded-lg ${pattern === 'random' ? 'bg-red-900' : 'bg-gray-700'}`}>
+                            <h3 className="font-semibold text-red-400">Random Access</h3>
+                            <ul className="text-sm text-gray-300 mt-2 space-y-1">
+                                <li>✗ Unpredictable addresses</li>
+                                <li>✗ Cache misses</li>
+                                <li>✗ No prefetching benefit</li>
+                                <li>✗ ~30% bandwidth utilization</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* Explanation */}
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Why this matters for ZKP accelerators:</p>
+                        <p className="text-gray-300">
+                            SumCheck uses <span className="text-green-400">streaming access</span> - reading MLE tables sequentially. 
+                            This is why zkPHIRE can achieve high memory bandwidth utilization.
+                            MSM uses <span className="text-red-400">random access</span> for bucket accumulation - 
+                            this is the fundamental bottleneck that limits MSM performance.
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // PROVER PIPELINE VISUALIZER
+        // ============================================================
+        const ProverPipelineVisualizer = () => {
+            const [activeStage, setActiveStage] = useState(0);
+            const [isPlaying, setIsPlaying] = useState(false);
+
+            const stages = [
+                { name: 'Circuit', desc: 'Compile constraints', color: 'bg-blue-500', time: '~1s' },
+                { name: 'Witness', desc: 'Generate values', color: 'bg-purple-500', time: '~2s' },
+                { name: 'Commit', desc: 'MSM for polynomials', color: 'bg-pink-500', time: '~5s' },
+                { name: 'SumCheck', desc: 'Prove constraints', color: 'bg-cyan-500', time: '~3s' },
+                { name: 'Open', desc: 'MSM for openings', color: 'bg-orange-500', time: '~4s' },
+                { name: 'Proof', desc: 'Output proof', color: 'bg-green-500', time: '~0.1s' },
+            ];
+
+            useEffect(() => {
+                if (isPlaying) {
+                    const timer = setTimeout(() => {
+                        setActiveStage(s => (s + 1) % stages.length);
+                    }, 1500);
+                    return () => clearTimeout(timer);
+                }
+            }, [isPlaying, activeStage]);
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-green-400">ZK Prover Pipeline</h2>
+                    
+                    <div className="flex gap-4 mb-6">
+                        <button 
+                            onClick={() => setIsPlaying(!isPlaying)}
+                            className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg font-semibold"
+                        >
+                            {isPlaying ? '⏸ Pause' : '▶ Animate Pipeline'}
+                        </button>
+                    </div>
+
+                    {/* Pipeline visualization */}
+                    <div className="relative mb-6">
+                        <svg width="100%" height="200" viewBox="0 0 800 200">
+                            {/* Connection lines */}
+                            {stages.slice(0, -1).map((_, i) => (
+                                <line 
+                                    key={i}
+                                    x1={80 + i * 130} 
+                                    y1="60" 
+                                    x2={130 + i * 130} 
+                                    y2="60"
+                                    className={`stroke-2 ${i < activeStage ? 'stroke-green-500' : 'stroke-gray-600'}`}
+                                    strokeDasharray={i === activeStage - 1 ? "5,5" : "0"}
+                                />
+                            ))}
+                            
+                            {/* Stage boxes */}
+                            {stages.map((stage, i) => (
+                                <g key={i} transform={`translate(${20 + i * 130}, 20)`}>
+                                    <rect 
+                                        x="0" y="0" 
+                                        width="100" height="80" 
+                                        rx="10"
+                                        className={`${
+                                            i === activeStage 
+                                                ? `${stage.color} glow` 
+                                                : i < activeStage 
+                                                    ? 'fill-green-700' 
+                                                    : 'fill-gray-700'
+                                        } transition-all duration-300`}
+                                    />
+                                    <text x="50" y="35" textAnchor="middle" className="fill-white font-bold text-sm">
+                                        {stage.name}
+                                    </text>
+                                    <text x="50" y="55" textAnchor="middle" className="fill-gray-300 text-xs">
+                                        {stage.desc}
+                                    </text>
+                                    <text x="50" y="70" textAnchor="middle" className="fill-yellow-400 text-xs">
+                                        {stage.time}
+                                    </text>
+                                    {i < activeStage && (
+                                        <text x="85" y="15" className="fill-green-400 text-lg">✓</text>
+                                    )}
+                                </g>
+                            ))}
+                        </svg>
+                    </div>
+
+                    {/* Time breakdown */}
+                    <div className="mb-6">
+                        <div className="text-sm text-gray-400 mb-2">Time Breakdown (typical 2²⁰ circuit)</div>
+                        <div className="h-8 flex rounded-lg overflow-hidden">
+                            <div className="bg-blue-500 flex-grow-[1] flex items-center justify-center text-xs">1s</div>
+                            <div className="bg-purple-500 flex-grow-[2] flex items-center justify-center text-xs">2s</div>
+                            <div className="bg-pink-500 flex-grow-[5] flex items-center justify-center text-xs">MSM 5s</div>
+                            <div className="bg-cyan-500 flex-grow-[3] flex items-center justify-center text-xs">SumCheck 3s</div>
+                            <div className="bg-orange-500 flex-grow-[4] flex items-center justify-center text-xs">MSM 4s</div>
+                            <div className="bg-green-500 flex-grow-[1] flex items-center justify-center text-xs">0.1s</div>
+                        </div>
+                    </div>
+
+                    {/* Current stage details */}
+                    <div className="p-4 bg-gray-700 rounded-lg">
+                        <h3 className="font-semibold text-yellow-400 mb-2">
+                            Stage {activeStage + 1}: {stages[activeStage].name}
+                        </h3>
+                        {activeStage === 0 && <p>Compile high-level circuit to constraint system (R1CS, Plonkish, AIR)</p>}
+                        {activeStage === 1 && <p>Compute all intermediate wire values from inputs</p>}
+                        {activeStage === 2 && <p>MSM to compute polynomial commitments - this is a major bottleneck!</p>}
+                        {activeStage === 3 && <p>Run SumCheck protocol to prove constraint satisfaction - zkPHIRE optimizes this!</p>}
+                        {activeStage === 4 && <p>MSM for opening proofs (KZG/IPA) - another MSM bottleneck</p>}
+                        {activeStage === 5 && <p className="text-green-400">✓ Proof complete! Ready for verification.</p>}
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // HARDWARE RESOURCE EXPLORER
+        // ============================================================
+        const HardwareExplorer = () => {
+            const [numPEs, setNumPEs] = useState(4);
+            const [bandwidth, setBandwidth] = useState(2000);
+            const [degree, setDegree] = useState(4);
+            const [problemSize, setProblemSize] = useState(20);
+
+            // Simplified performance model
+            const computeCycles = (2 ** problemSize) * (degree + 1) * 5 / numPEs;
+            const memoryCycles = (2 ** problemSize) * 32 / (bandwidth * 1e9 / 8) * 1e9;
+            const totalCycles = Math.max(computeCycles, memoryCycles);
+            const runtime = totalCycles / 1e9; // assuming 1GHz
+            const bottleneck = computeCycles > memoryCycles ? 'COMPUTE' : 'MEMORY';
+            const utilization = Math.min(computeCycles, memoryCycles) / Math.max(computeCycles, memoryCycles) * 100;
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-yellow-400">Hardware Resource Explorer</h2>
+                    
+                    {/* Sliders */}
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                Processing Elements: {numPEs}
+                            </label>
+                            <input 
+                                type="range" min="1" max="16" value={numPEs}
+                                onChange={(e) => setNumPEs(Number(e.target.value))}
+                                className="w-full"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                HBM Bandwidth: {bandwidth} GB/s
+                            </label>
+                            <input 
+                                type="range" min="256" max="4096" step="256" value={bandwidth}
+                                onChange={(e) => setBandwidth(Number(e.target.value))}
+                                className="w-full"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                Polynomial Degree: {degree}
+                            </label>
+                            <input 
+                                type="range" min="2" max="20" value={degree}
+                                onChange={(e) => setDegree(Number(e.target.value))}
+                                className="w-full"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">
+                                Problem Size: 2^{problemSize} = {(2**problemSize).toLocaleString()} gates
+                            </label>
+                            <input 
+                                type="range" min="10" max="24" value={problemSize}
+                                onChange={(e) => setProblemSize(Number(e.target.value))}
+                                className="w-full"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Visual representation */}
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                        {/* Compute vs Memory bar */}
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="font-semibold mb-3">Bottleneck Analysis</h3>
+                            <div className="space-y-3">
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>Compute</span>
+                                        <span>{(computeCycles / 1e6).toFixed(1)}M cycles</span>
+                                    </div>
+                                    <div className="h-4 bg-gray-600 rounded overflow-hidden">
+                                        <div 
+                                            className="h-full bg-blue-500 transition-all"
+                                            style={{ width: `${Math.min(100, computeCycles / totalCycles * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between text-sm mb-1">
+                                        <span>Memory</span>
+                                        <span>{(memoryCycles / 1e6).toFixed(1)}M cycles</span>
+                                    </div>
+                                    <div className="h-4 bg-gray-600 rounded overflow-hidden">
+                                        <div 
+                                            className="h-full bg-pink-500 transition-all"
+                                            style={{ width: `${Math.min(100, memoryCycles / totalCycles * 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Results */}
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="font-semibold mb-3">Performance</h3>
+                            <div className="space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Runtime:</span>
+                                    <span className="font-bold">{(runtime * 1000).toFixed(2)} ms</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Bottleneck:</span>
+                                    <span className={`font-bold ${bottleneck === 'COMPUTE' ? 'text-blue-400' : 'text-pink-400'}`}>
+                                        {bottleneck}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-400">Utilization:</span>
+                                    <span className="font-bold">{utilization.toFixed(0)}%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Hardware visualization */}
+                    <div className="bg-gray-700 p-4 rounded-lg">
+                        <h3 className="font-semibold mb-3">Hardware Configuration</h3>
+                        <div className="flex gap-4 items-center">
+                            <div className="flex flex-wrap gap-1 flex-1">
+                                {Array(numPEs).fill(0).map((_, i) => (
+                                    <div key={i} className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-xs font-bold">
+                                        PE
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-2xl">↔</div>
+                            <div className="flex-1">
+                                <div 
+                                    className="h-8 bg-pink-500 rounded flex items-center justify-center text-xs font-bold"
+                                    style={{ width: `${Math.min(100, bandwidth / 40)}%` }}
+                                >
+                                    HBM {bandwidth} GB/s
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Insight */}
+                    <div className="mt-4 p-4 bg-gray-700 rounded-lg text-sm">
+                        <p className="text-yellow-400 font-semibold mb-2">Key Insight:</p>
+                        <p className="text-gray-300">
+                            {degree < 10 
+                                ? "Low-degree polynomials are MEMORY-BOUND. Adding more PEs won't help much - need more bandwidth!"
+                                : "High-degree polynomials are COMPUTE-BOUND. More PEs will improve performance linearly."
+                            }
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // WORKLOAD COMPARISON VISUALIZER
+        // ============================================================
+        const WorkloadComparisonVisualizer = () => {
+            const [workload, setWorkload] = useState('hash');
+            
+            const workloads = {
+                hash: { name: 'Poseidon Hash', reduction: 8, icon: '#️⃣' },
+                ec: { name: 'EC Operations', reduction: 4, icon: '🔐' },
+                mixed: { name: 'Mixed Rollup', reduction: 5, icon: '📦' },
+                recursive: { name: 'Recursive Proofs', reduction: 6, icon: '🔄' },
+            };
+
+            const perGateCost = 5.65;
+            const w = workloads[workload];
+            const netSpeedup = w.reduction / perGateCost;
+            const winner = netSpeedup > 1 ? 'Jellyfish' : 'Vanilla';
+
+            const vanillaGates = 1000;
+            const jellyfishGates = Math.round(vanillaGates / w.reduction);
+
+            return (
+                <div className="p-6 bg-gray-800 rounded-xl">
+                    <h2 className="text-2xl font-bold mb-4 text-pink-400">Workload Comparison</h2>
+                    
+                    {/* Workload selector */}
+                    <div className="flex gap-2 mb-6 flex-wrap">
+                        {Object.entries(workloads).map(([key, val]) => (
+                            <button 
+                                key={key}
+                                onClick={() => setWorkload(key)}
+                                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
+                                    workload === key 
+                                        ? 'bg-pink-600 scale-105' 
+                                        : 'bg-gray-600 hover:bg-gray-500'
+                                }`}
+                            >
+                                {val.icon} {val.name}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Gate visualization */}
+                    <div className="grid grid-cols-2 gap-6 mb-6">
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="font-semibold text-blue-400 mb-3">Vanilla Circuit</h3>
+                            <div className="h-32 flex items-end gap-0.5">
+                                {Array(20).fill(0).map((_, i) => (
+                                    <div 
+                                        key={i} 
+                                        className="flex-1 bg-blue-500 rounded-t"
+                                        style={{ height: `${100}%` }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="text-center mt-2">
+                                <div className="text-2xl font-bold">{vanillaGates}</div>
+                                <div className="text-sm text-gray-400">gates</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gray-700 p-4 rounded-lg">
+                            <h3 className="font-semibold text-pink-400 mb-3">Jellyfish Circuit</h3>
+                            <div className="h-32 flex items-end gap-0.5">
+                                {Array(Math.ceil(20 / w.reduction)).fill(0).map((_, i) => (
+                                    <div 
+                                        key={i} 
+                                        className="bg-pink-500 rounded-t"
+                                        style={{ 
+                                            height: `${100}%`,
+                                            width: `${w.reduction * 5}%`
+                                        }}
+                                    />
+                                ))}
+                            </div>
+                            <div className="text-center mt-2">
+                                <div className="text-2xl font-bold">{jellyfishGates}</div>
+                                <div className="text-sm text-gray-400">gates ({w.reduction}× fewer)</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Math breakdown */}
+                    <div className={`p-4 rounded-lg mb-4 ${winner === 'Jellyfish' ? 'bg-green-900' : 'bg-red-900'}`}>
+                        <div className="grid grid-cols-4 gap-4 text-center">
+                            <div>
+                                <div className="text-sm text-gray-400">Gate Reduction</div>
+                                <div className="text-xl font-bold">{w.reduction}×</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Per-Gate Cost</div>
+                                <div className="text-xl font-bold">{perGateCost.toFixed(1)}×</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Net Speedup</div>
+                                <div className="text-xl font-bold">{netSpeedup.toFixed(2)}×</div>
+                            </div>
+                            <div>
+                                <div className="text-sm text-gray-400">Winner</div>
+                                <div className={`text-xl font-bold ${winner === 'Jellyfish' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {winner}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Formula */}
+                    <div className="p-4 bg-gray-700 rounded-lg font-mono text-center">
+                        <div className="text-lg">
+                            Net Speedup = Gate Reduction ÷ Per-Gate Cost
+                        </div>
+                        <div className="text-xl mt-2 text-yellow-400">
+                            {netSpeedup.toFixed(2)}× = {w.reduction}× ÷ {perGateCost.toFixed(1)}×
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // ============================================================
+        // MAIN APP
+        // ============================================================
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('sumcheck');
+
+            const tabs = [
+                { id: 'sumcheck', name: 'SumCheck Protocol', icon: '∑' },
+                { id: 'gates', name: 'Gate Comparison', icon: '⊕' },
+                { id: 'memory', name: 'Memory Patterns', icon: '📊' },
+                { id: 'pipeline', name: 'Prover Pipeline', icon: '⚙️' },
+                { id: 'hardware', name: 'Hardware Explorer', icon: '🔧' },
+                { id: 'workload', name: 'Workload Analysis', icon: '📈' },
+            ];
+
+            return (
+                <div className="min-h-screen">
+                    {/* Header */}
+                    <header className="bg-gradient-to-r from-purple-900 via-indigo-900 to-blue-900 p-6">
+                        <h1 className="text-4xl font-bold text-center mb-2">
+                            ZKP Accelerator Visualizer
+                        </h1>
+                        <p className="text-center text-gray-300">
+                            Interactive exploration of zkSpeed & zkPHIRE concepts
+                        </p>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="bg-gray-800 border-b border-gray-700 sticky top-0 z-10">
+                        <div className="flex overflow-x-auto">
+                            {tabs.map(tab => (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-6 py-4 font-semibold whitespace-nowrap transition-all ${
+                                        activeTab === tab.id
+                                            ? 'bg-gray-700 text-cyan-400 border-b-2 border-cyan-400'
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    <span className="mr-2">{tab.icon}</span>
+                                    {tab.name}
+                                </button>
+                            ))}
+                        </div>
+                    </nav>
+
+                    {/* Content */}
+                    <main className="container mx-auto p-6 max-w-6xl">
+                        {activeTab === 'sumcheck' && <SumCheckVisualizer />}
+                        {activeTab === 'gates' && <GateComparisonVisualizer />}
+                        {activeTab === 'memory' && <MemoryAccessVisualizer />}
+                        {activeTab === 'pipeline' && <ProverPipelineVisualizer />}
+                        {activeTab === 'hardware' && <HardwareExplorer />}
+                        {activeTab === 'workload' && <WorkloadComparisonVisualizer />}
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="bg-gray-800 p-4 text-center text-gray-400 text-sm">
+                        Built to demonstrate understanding of zkSpeed & zkPHIRE papers
+                    </footer>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

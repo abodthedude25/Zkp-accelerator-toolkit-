@@ -432,6 +432,170 @@ def analyze_design_space(polynomial: SimPolynomial, problem_size: int,
     return results
 
 
+# =============================================================================
+# WORKLOAD COMPARISON (accounting for gate reduction)
+# =============================================================================
+
+@dataclass
+class WorkloadComparisonResult:
+    """
+    Result of comparing Vanilla vs Jellyfish for a real workload.
+    
+    This accounts for the gate reduction that Jellyfish provides,
+    giving a true apples-to-apples comparison.
+    """
+    workload_type: str
+    vanilla_gates: int
+    jellyfish_gates: int
+    gate_reduction: float
+    
+    vanilla_metrics: PerformanceMetrics
+    jellyfish_metrics: PerformanceMetrics
+    
+    net_speedup: float
+    winner: str
+    
+    def summary(self) -> str:
+        """Return formatted summary."""
+        lines = [
+            f"Workload Comparison: {self.workload_type}",
+            "=" * 60,
+            "",
+            f"Gate Counts:",
+            f"  Vanilla:   {self.vanilla_gates:>12,} gates",
+            f"  Jellyfish: {self.jellyfish_gates:>12,} gates",
+            f"  Reduction: {self.gate_reduction:>12.1f}x",
+            "",
+            f"SumCheck Performance:",
+            f"  Vanilla:   {self.vanilla_metrics.runtime_ms:>12.2f} ms ({self.vanilla_metrics.bottleneck})",
+            f"  Jellyfish: {self.jellyfish_metrics.runtime_ms:>12.2f} ms ({self.jellyfish_metrics.bottleneck})",
+            "",
+            f"Net Speedup: {self.net_speedup:.2f}x",
+            f"Winner: {self.winner}",
+        ]
+        return "\n".join(lines)
+
+
+# Gate reduction factors by workload type (from zkPHIRE paper)
+WORKLOAD_GATE_REDUCTION = {
+    "hash": 8.0,      # Poseidon hash: x^5 S-boxes → POW5
+    "ec": 4.0,        # EC operations: multi-products → QUAD_MUL
+    "mixed": 5.0,     # General workload
+    "recursive": 6.0, # Recursive proofs
+}
+
+
+def compare_workload(
+    simulator: SumCheckSimulator,
+    vanilla_poly: 'SimPolynomial',
+    jellyfish_poly: 'SimPolynomial',
+    base_gates: int,
+    workload_type: str = "mixed"
+) -> WorkloadComparisonResult:
+    """
+    Compare Vanilla vs Jellyfish for a real workload.
+    
+    This is the key comparison that accounts for gate reduction!
+    
+    Args:
+        simulator: The simulator to use
+        vanilla_poly: Vanilla polynomial (e.g., VANILLA_ZEROCHECK)
+        jellyfish_poly: Jellyfish polynomial (e.g., JELLYFISH_ZEROCHECK)
+        base_gates: Number of gates in the vanilla circuit
+        workload_type: "hash", "ec", "mixed", or "recursive"
+        
+    Returns:
+        WorkloadComparisonResult with full comparison
+        
+    Example:
+        >>> sim = SumCheckSimulator(create_zkphire_config())
+        >>> result = compare_workload(sim, VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK,
+        ...                           base_gates=2**20, workload_type="hash")
+        >>> print(f"Net speedup: {result.net_speedup:.2f}x")
+    """
+    # Get gate reduction factor
+    reduction = WORKLOAD_GATE_REDUCTION.get(workload_type, 5.0)
+    
+    # Calculate Jellyfish gate count
+    jellyfish_gates = max(1, int(base_gates / reduction))
+    
+    # Round to nearest power of 2 for cleaner simulation
+    jellyfish_gates = 2 ** int(math.log2(jellyfish_gates) + 0.5)
+    
+    # Simulate both
+    vanilla_metrics = simulator.simulate(vanilla_poly, base_gates)
+    jellyfish_metrics = simulator.simulate(jellyfish_poly, jellyfish_gates)
+    
+    # Calculate net speedup
+    net_speedup = vanilla_metrics.runtime_ms / jellyfish_metrics.runtime_ms
+    
+    # Determine winner
+    winner = "Jellyfish" if net_speedup > 1.0 else "Vanilla"
+    
+    return WorkloadComparisonResult(
+        workload_type=workload_type,
+        vanilla_gates=base_gates,
+        jellyfish_gates=jellyfish_gates,
+        gate_reduction=base_gates / jellyfish_gates,
+        vanilla_metrics=vanilla_metrics,
+        jellyfish_metrics=jellyfish_metrics,
+        net_speedup=net_speedup,
+        winner=winner,
+    )
+
+
+def compare_all_workloads(
+    simulator: SumCheckSimulator,
+    vanilla_poly: 'SimPolynomial',
+    jellyfish_poly: 'SimPolynomial',
+    base_gates: int,
+) -> Dict[str, WorkloadComparisonResult]:
+    """
+    Compare Vanilla vs Jellyfish across all workload types.
+    
+    Returns dict mapping workload_type to comparison result.
+    """
+    results = {}
+    for workload_type in WORKLOAD_GATE_REDUCTION.keys():
+        results[workload_type] = compare_workload(
+            simulator, vanilla_poly, jellyfish_poly,
+            base_gates, workload_type
+        )
+    return results
+
+
+def print_workload_comparison_table(
+    simulator: SumCheckSimulator,
+    vanilla_poly: 'SimPolynomial',
+    jellyfish_poly: 'SimPolynomial',
+    base_gates: int,
+):
+    """
+    Print a nice comparison table across all workload types.
+    """
+    print(f"\n{'Workload':<12} {'V-Gates':>12} {'J-Gates':>12} {'Reduction':>10} "
+          f"{'V-Time':>10} {'J-Time':>10} {'Speedup':>10} {'Winner':>10}")
+    print("-" * 100)
+    
+    for workload_type in WORKLOAD_GATE_REDUCTION.keys():
+        result = compare_workload(
+            simulator, vanilla_poly, jellyfish_poly,
+            base_gates, workload_type
+        )
+        
+        v_time = f"{result.vanilla_metrics.runtime_ms:.2f}ms"
+        j_time = f"{result.jellyfish_metrics.runtime_ms:.2f}ms"
+        
+        if result.net_speedup >= 1.0:
+            speedup_str = f"{result.net_speedup:.2f}x ↑"
+        else:
+            speedup_str = f"{result.net_speedup:.2f}x ↓"
+        
+        print(f"{workload_type:<12} {result.vanilla_gates:>12,} {result.jellyfish_gates:>12,} "
+              f"{result.gate_reduction:>9.1f}x {v_time:>10} {j_time:>10} "
+              f"{speedup_str:>10} {result.winner:>10}")
+
+
 # Example usage
 if __name__ == "__main__":
     from .polynomials import VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK

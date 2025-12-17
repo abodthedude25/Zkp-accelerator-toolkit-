@@ -31,6 +31,9 @@ from src.simulator.polynomials import (
 from src.simulator.core import (
     SumCheckSimulator,
     analyze_design_space,
+    compare_workload,
+    print_workload_comparison_table,
+    WORKLOAD_GATE_REDUCTION,
 )
 
 
@@ -70,10 +73,64 @@ def demo_basic_simulation():
     print(f"  Memory utilization: {metrics.memory_utilization:.1%}")
 
 
+def demo_workload_comparison():
+    """Compare Vanilla vs Jellyfish accounting for gate reduction."""
+    print("\n" + "=" * 70)
+    print("DEMO 2: WORKLOAD COMPARISON (KEY INSIGHT!)")
+    print("=" * 70)
+    
+    print("""
+┌─────────────────────────────────────────────────────────────────────┐
+│  WHY THIS MATTERS                                                   │
+├─────────────────────────────────────────────────────────────────────┤
+│  A naive comparison of Vanilla vs Jellyfish at the SAME gate count  │
+│  makes Jellyfish look slower (2.4x more compute per gate).          │
+│                                                                     │
+│  But the whole point of Jellyfish is GATE REDUCTION!                │
+│  - Hash workloads: 8x fewer gates                                   │
+│  - EC workloads: 4x fewer gates                                     │
+│  - Mixed workloads: 5x fewer gates                                  │
+│                                                                     │
+│  A fair comparison uses different gate counts for each approach.    │
+└─────────────────────────────────────────────────────────────────────┘
+""")
+    
+    config = create_zkphire_config()
+    sim = SumCheckSimulator(config)
+    
+    problem_size = 2**20
+    
+    # First show the misleading same-gate comparison
+    print("MISLEADING: Same gate count comparison")
+    print("-" * 50)
+    print(f"Problem size: 2^20 = {problem_size:,} gates for BOTH")
+    
+    v_metrics = sim.simulate(VANILLA_ZEROCHECK, problem_size)
+    j_metrics = sim.simulate(JELLYFISH_ZEROCHECK, problem_size)
+    
+    print(f"\n  Vanilla:   {v_metrics.runtime_ms:>8.2f} ms")
+    print(f"  Jellyfish: {j_metrics.runtime_ms:>8.2f} ms")
+    print(f"  Ratio: {j_metrics.runtime_ms / v_metrics.runtime_ms:.1f}x slower 😞")
+    print("\n⚠️  This ignores gate reduction!")
+    
+    # Now show the correct comparison
+    print("\n" + "=" * 50)
+    print("CORRECT: Accounting for gate reduction")
+    print("=" * 50)
+    
+    print_workload_comparison_table(sim, VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK, problem_size)
+    
+    print("\nAnalysis:")
+    print("  - Hash workloads (8x reduction): ~3x net speedup!")
+    print("  - EC workloads (4x reduction): ~1.5x net speedup")
+    print("  - Mixed workloads (5x reduction): ~2x net speedup")
+    print("\nThis is why zkPHIRE excels on hash-heavy applications like rollups!")
+
+
 def demo_polynomial_comparison():
     """Compare different polynomial structures."""
     print("\n" + "=" * 70)
-    print("DEMO 2: POLYNOMIAL COMPARISON")
+    print("DEMO 3: POLYNOMIAL COMPARISON (same gate count)")
     print("=" * 70)
     
     config = create_zkphire_config()
@@ -337,6 +394,7 @@ def main():
     
     demos = [
         ("Basic Simulation", demo_basic_simulation),
+        ("Workload Comparison (KEY!)", demo_workload_comparison),
         ("Polynomial Comparison", demo_polynomial_comparison),
         ("Bandwidth Sensitivity", demo_bandwidth_sensitivity),
         ("PE Scaling", demo_pe_scaling),

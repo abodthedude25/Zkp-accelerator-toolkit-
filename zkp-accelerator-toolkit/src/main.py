@@ -82,7 +82,7 @@ def run_simulator():
     
     from src.simulator.hardware import create_zkphire_config
     from src.simulator.polynomials import VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK
-    from src.simulator.core import SumCheckSimulator
+    from src.simulator.core import SumCheckSimulator, compare_workload
     
     config = create_zkphire_config()
     sim = SumCheckSimulator(config)
@@ -92,8 +92,9 @@ def run_simulator():
     print(f"\nHardware: {config.name}")
     print(f"Problem size: 2^20 = {problem_size:,} gates")
     
-    # Compare polynomials
-    print(f"\n{'Polynomial':<25} {'Cycles':>14} {'Runtime':>12} {'Bottleneck':>12}")
+    # OLD comparison: same gate count (misleading!)
+    print(f"\n--- Same Gate Count (misleading comparison) ---")
+    print(f"{'Polynomial':<25} {'Cycles':>14} {'Runtime':>12} {'Bottleneck':>12}")
     print("-" * 65)
     
     for poly in [VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK]:
@@ -101,7 +102,30 @@ def run_simulator():
         print(f"{poly.name:<25} {metrics.total_cycles:>14,} "
               f"{metrics.runtime_ms:>11.2f}ms {metrics.bottleneck:>12}")
     
+    print("\n⚠️  The above makes Jellyfish look slower because it ignores gate reduction!")
+    
+    # NEW comparison: accounting for gate reduction
+    print(f"\n--- Workload Comparison (accounts for gate reduction) ---")
+    print(f"{'Workload':<12} {'V-Gates':>12} {'J-Gates':>12} {'V-Time':>10} {'J-Time':>10} {'Speedup':>12}")
+    print("-" * 75)
+    
+    for workload in ["hash", "ec", "mixed"]:
+        result = compare_workload(sim, VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK,
+                                  problem_size, workload)
+        
+        v_time = f"{result.vanilla_metrics.runtime_ms:.2f}ms"
+        j_time = f"{result.jellyfish_metrics.runtime_ms:.2f}ms"
+        
+        if result.net_speedup >= 1.0:
+            speedup_str = f"{result.net_speedup:.2f}x ↑"
+        else:
+            speedup_str = f"{result.net_speedup:.2f}x ↓"
+        
+        print(f"{workload:<12} {result.vanilla_gates:>12,} {result.jellyfish_gates:>12,} "
+              f"{v_time:>10} {j_time:>10} {speedup_str:>12}")
+    
     print("\n✓ Simulator demo complete!")
+    print("\nKey insight: When accounting for gate reduction, Jellyfish wins!")
 
 
 def run_optimizer():
@@ -175,17 +199,20 @@ def run_quick_demo():
     print("-" * 70)
     
     from src.simulator.hardware import create_zkphire_config
-    from src.simulator.polynomials import VANILLA_ZEROCHECK
-    from src.simulator.core import SumCheckSimulator
+    from src.simulator.polynomials import VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK
+    from src.simulator.core import SumCheckSimulator, compare_workload
     
     config = create_zkphire_config()
     sim = SumCheckSimulator(config)
-    metrics = sim.simulate(VANILLA_ZEROCHECK, 2**20)
     
-    print(f"\nSumCheck on VanillaZeroCheck (2^20 gates)")
-    print(f"  Cycles: {metrics.total_cycles:,}")
-    print(f"  Runtime: {metrics.runtime_ms:.2f} ms")
-    print(f"  Bottleneck: {metrics.bottleneck}")
+    # Show workload comparison (the right way!)
+    result = compare_workload(sim, VANILLA_ZEROCHECK, JELLYFISH_ZEROCHECK,
+                              base_gates=2**20, workload_type="hash")
+    
+    print(f"\nWorkload comparison (hash-heavy, 2^20 base gates):")
+    print(f"  Vanilla:   {result.vanilla_gates:,} gates → {result.vanilla_metrics.runtime_ms:.2f} ms")
+    print(f"  Jellyfish: {result.jellyfish_gates:,} gates → {result.jellyfish_metrics.runtime_ms:.2f} ms")
+    print(f"  Net speedup: {result.net_speedup:.2f}x ({result.winner} wins!)")
     
     print("\n" + "-" * 70)
     print("3. GATE OPTIMIZER (abbreviated)")

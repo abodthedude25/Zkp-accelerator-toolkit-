@@ -1,5 +1,0 @@
-[console_scripts]
-zkp-demo = src.main:main
-zkp-optimize = src.optimizer.demo:main
-zkp-simulate = src.simulator.demo:main
-zkp-visualize = src.visualizer.demo:main
