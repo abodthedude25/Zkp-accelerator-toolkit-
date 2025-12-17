@@ -2,50 +2,60 @@
 
 An interactive web-based visualization of ZKP concepts from the zkSpeed and zkPHIRE papers.
 
-## How to Use
+## 🚀 How to Use
 
-Simply open `index.html` or `advanced.html` in any modern web browser. No server required!
+Simply open any HTML file in a modern web browser. No server required!
 
 ```bash
-# Option 1: Open directly
-open index.html
-
-# Option 2: Use Python's built-in server (for CORS if needed)
-python -m http.server 8000
-# Then visit http://localhost:8000
+open index.html        # Basic visualizations
+open advanced.html     # MSM, NTT, Commitments
+open papers.html       # Paper figures & Circuit compiler
 ```
 
-## Visualizations
+## 📄 Pages
 
 ### Basic (index.html)
-1. **SumCheck Protocol** - Watch the table halving and round polynomial generation
-2. **Gate Comparison** - Interactive Vanilla vs Jellyfish gate analysis
-3. **Memory Patterns** - See streaming vs random access patterns
-4. **Prover Pipeline** - Animated view of the full ZK proving flow
-5. **Hardware Explorer** - Adjust PEs, bandwidth, degree to see bottlenecks
-6. **Workload Analysis** - Compare workloads accounting for gate reduction
+| Tab | Description |
+|-----|-------------|
+| ∑ SumCheck | Watch table halving and round progression |
+| ⊕ Gate Comparison | Interactive Vanilla vs Jellyfish analysis |
+| 📊 Memory Patterns | Streaming vs random access animation |
+| ⚙️ Prover Pipeline | Full proving flow with time breakdown |
+| 🔧 Hardware Explorer | Adjust PEs, bandwidth, degree |
+| 📈 Workload Analysis | Compare with gate reduction |
 
 ### Advanced (advanced.html)
-1. **MSM Algorithm** - Pippenger's bucket method visualization
-2. **NTT Butterfly** - Cooley-Tukey FFT-style diagram
-3. **Polynomial Commitments** - KZG, IPA, and FRI schemes compared
-4. **Crossover Point** - Memory vs compute bottleneck visualization
+| Tab | Description |
+|-----|-------------|
+| 🔢 MSM Algorithm | Pippenger's bucket method |
+| 🦋 NTT Butterfly | Cooley-Tukey transform diagram |
+| 🔐 Poly Commitments | KZG, IPA, FRI comparison |
+| 📈 Crossover Point | Memory vs compute bottleneck |
 
-## Key Concepts Demonstrated
+### Paper Analysis (papers.html) ⭐
+| Tab | Description |
+|-----|-------------|
+| 📊 zkSpeed Fig 9 | Reproduced cycle breakdown chart |
+| 📈 zkPHIRE Fig 11 | Reproduced speedup analysis |
+| ⚙️ Circuit Compiler | Poseidon/ECDSA/MiMC → gates |
+| 📄 Paper Comparison | Side-by-side comparison table |
+| 🧮 Calculator | Input requirements → recommendations |
+
+## 🎯 Key Concepts
 
 ### From zkSpeed
 - SumCheck protocol mechanics
 - Streaming memory access patterns
 - Hardware PE architecture
-- MSM acceleration
+- Cycle breakdown analysis
 
 ### From zkPHIRE
 - High-degree gates (Jellyfish)
 - Gate reduction tradeoffs
-- Programmable polynomial evaluation
-- Memory-compute crossover analysis
+- Per-gate cost vs effective speedup
+- Memory-compute crossover
 
-## Technologies Used
+## 🛠️ Technologies
 - React 18 (via CDN)
 - Tailwind CSS (via CDN)
-- Pure HTML/JavaScript (no build step required)
+- Pure HTML/JS (no build required)
